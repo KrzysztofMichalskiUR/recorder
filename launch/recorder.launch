@@ -1,0 +1,21 @@
+<launch>
+
+<!--
+
+  <include file="$(find ghostbuster)/launch/ghostbuster.launch"/>
+  -->
+  
+  <node pkg="recorder" type="recorder_node" name="recorder_node" output="screen">
+    <param name="before_trigger" value="10.0"/>
+    <param name="after_trigger" value="10.0"/>
+    <param name="output_dir" value="/mnt/500GBSSD/bags/recorder"/>
+    
+    <!--these parameters should be given as an absolute path  -->
+    <param name="file1_dir" value="/home/catkin_ws/src/recorder/config/topics.txt"/>
+    <param name="file2_dir" value="/home/catkin_ws/src/recorder/config/topics_recovery.txt"/>
+
+    <!-- Default values of the parameters are given in the recorder_node -->
+    <!-- If loading of those above is failed, given values are used -->
+    
+  </node>
+</launch>
