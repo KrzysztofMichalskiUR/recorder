@@ -42,6 +42,7 @@
 #include <boost/core/demangle.hpp>
 #include <boost/hana.hpp>
 #include <boost/hana/ext/std/tuple.hpp>
+#include <list>
 
 
 unsigned constexpr const_hash(char const *input) {
@@ -106,19 +107,35 @@ TOPIC_TYPE_SPECIALISATION(visualization_msgs   ,MarkerArray              )
 
 template <class T> struct Topic
 {
+  using stampedMsg=std::pair<T,ros::Time>;
   char* topicname;
   int size_limit=10;
-  bool active=false; 
-  std::queue<T> buffor;
+  bool active=true; 
+  bool clearing_past=true;
+  std::list<stampedMsg> buffor;
   ros::Subscriber sub;
   //using pT=typename T::ConstPtr;
+  ros::Duration back_diff=ros::Duration(10.0);
+  void trimOld()
+  {
+      auto tn=ros::Time::now();
+        while(buffor.size()>0 && buffor.back().second-tn<back_diff)
+        {
+          buffor.pop_back();
+        }
+  }
   void cb (const T& msg)
   {
     if(active)
     {
-      this->buffor.push(msg);
+      if(clearing_past)
+      {
+        trimOld();
+      }
+      buffor.push_front(stampedMsg{msg,ros::Time::now()});
     }
   };
+  
   void subscribe(ros::NodeHandle& n)
   {
 //    auto cb=[&n,this] shared_ptr<T> msg){ buffor.push(*msg);};
@@ -133,7 +150,7 @@ template <class T> struct Topic
     ROS_INFO("of type: %s ",boost::core::demangle(typeid(T).name()).c_str());
     if(buffor.size()>=size_limit)
     {
-      buffor.pop();
+     // buffor.pop();
     }
     boost::shared_ptr<const T> msgPtr=ros::topic::waitForMessage<T>(topicname,n,ros::Duration(0.25));
     auto raw_ptr=msgPtr.get();
@@ -144,15 +161,15 @@ template <class T> struct Topic
     }
     ROS_INFO("MSG NOT NULL");
     T val=*raw_ptr;
-    buffor.push(val);
+//    buffor.push(val);
     return 1;
   }
   int dump(rosbag::Bag& bag)
   {
     while(buffor.size()>0)
     {
-        bag.write(topicname,ros::Time::now(),buffor.front());
-        buffor.pop();
+        bag.write(topicname,buffor.back().second,buffor.back().first);
+        buffor.pop_back();
    }
     return 1;
   }
@@ -313,10 +330,10 @@ template <class T> struct Topic
   TOPIC_INSTANTIATION("/gazebo/parameter_updates",                                       "dynamic_reconfigure/Config")
    );
 }
+enum TopicsSetID {DEFAULT,RECOVERY};
 
 struct TopicPack
 {
-
   using dT= decltype(getTopicsDefault());
   dT defaultTopics=getTopicsDefault();
   using rT= decltype(getTopicsRecovery());
@@ -327,38 +344,35 @@ struct TopicPack
     for_each(defaultTopics,[&n](auto &t) { t.subscribe(n);});
     for_each(recoveryTopics,[&n](auto &t) { t.subscribe(n);});
   }
-
-  void recordAnyTopicDefault(rosbag::Bag& bag,ros::NodeHandle &n) //Must be copied and pasted for now. We need std::queue, so Topic is not constexpr and we can't use templates for these methods
+  void recordAnyTopic(TopicsSetID mode,rosbag::Bag& bag,ros::NodeHandle &n) //Must be copied and pasted for now. We need std::queue, so Topic is not constexpr and we can't use templates for these methods
   {
   using boost::hana::for_each;
-    for_each(defaultTopics,[&n](auto &t) { t.putMsg(n);});
+    for_each(mode==DEFAULT?defaultTopics:recoveryTopics,[&n](auto &t) { t.putMsg(n);});
   }
-
-  void dumpAnyTopicDefault(rosbag::Bag& bag,ros::NodeHandle &n)
+  void dumpAnyTopic(TopicsSetID mode,rosbag::Bag& bag,ros::NodeHandle &n)
   {
   using boost::hana::for_each;
-
-    for_each(defaultTopics,[&bag](auto &t) { t.dump(bag);});
+    for_each(mode==DEFAULT?defaultTopics:recoveryTopics,[&bag](auto &t) { t.dump(bag);});
   }
-  void recordAnyTopicRecovery(rosbag::Bag& bag,ros::NodeHandle &n) 
-  {
-
-  using boost::hana::for_each;
-    for_each(recoveryTopics,[&n](auto &t) { t.putMsg(n);});
-  }
-  void dumpAnyTopicRecovery(rosbag::Bag& bag,ros::NodeHandle &n)
+  void setActive(TopicsSetID mode,bool a)
   {
     using boost::hana::for_each;
-    for_each(recoveryTopics,[&bag](auto &t) { t.dump(bag);});
+    for_each(mode==DEFAULT?defaultTopics:recoveryTopics,[a](auto &t){t.active=a;});
   }
-void setActiveDefault(bool a)
-{
-  using boost::hana::for_each;
-  for_each(defaultTopics,[a](auto &t){t.active=a;});
-}
-void setActiveRecovery(bool a)
-{
-  using boost::hana::for_each;
-  for_each(recoveryTopics,[a](auto &t){t.active=a;});
-}
+  void setDuration(TopicsSetID mode,ros::Duration d)
+  {
+    using boost::hana::for_each;
+    for_each(mode==DEFAULT?defaultTopics:recoveryTopics,[d](auto &t){t.back_diff=d;});
+  }
+  void setClearingPast(TopicsSetID mode,bool a)
+  {
+    using boost::hana::for_each;
+    for_each(mode==DEFAULT?defaultTopics:recoveryTopics,[a](auto &t){t.clearing_past=a;});
+  }
+  void trimOld(TopicsSetID mode,bool a)
+  {
+    using boost::hana::for_each;
+    for_each(mode==DEFAULT?defaultTopics:recoveryTopics,[](auto &t){t.trimOld();});
+  }
+
 };

@@ -141,6 +141,8 @@ int main(int argc, char** argv)
 	bool first_time=false;
   TopicPack tp;
   tp.subscribe(n);
+  tp.setActive(DEFAULT,true);
+  tp.setActive(RECOVERY,true);
 
 
 
@@ -159,7 +161,14 @@ int main(int argc, char** argv)
 		//if we get signal about ghosting (or rotation), we go into this clause
 		if((triggeredG||triggeredT)&&stateCurr!=BAG_OFF)
 		{
-			
+      if(stateCurr==BAG_NORMAL)
+      {
+        tp.setClearingPast(DEFAULT,false);
+      }
+      if(stateCurr==BAG_RECOVERY)
+      {
+        tp.setClearingPast(RECOVERY,false);
+      }
 			startTime = currentTime - ros::Duration(beforeTrigger);
 			endTime = currentTime + ros::Duration(afterTrigger);
 
@@ -269,31 +278,33 @@ int main(int argc, char** argv)
 		//std::cout<<"State: "<<stateCurr<<std::endl;
       if(stateCurr!=statePrev)
       {
+        /*
         switch(stateCurr_T)
         {
           
           case BAG_NORMAL:
           {
-            tp.setActiveDefault(true);
-            tp.setActiveRecovery(false);
+            tp.setActive(DEFAULT,false);
+            tp.setActive(RECOVERY,false);
 
             break;
           }
           case BAG_OFF:
           {
-            tp.setActiveDefault(false);
-            tp.setActiveRecovery(false);
+            tp.setActive(DEFAULT,false);
+            tp.setActive(RECOVERY,false);
 
             break;
 
           }
           case BAG_RECOVERY:
           {
-            tp.setActiveDefault(false);
-            tp.setActiveRecovery(false);
+            tp.setActive(DEFAULT,false);
+            tp.setActive(RECOVERY,true);
           }
         
         }
+        */
       }
 		ros::spinOnce();
 
@@ -312,15 +323,18 @@ int main(int argc, char** argv)
       {
         case BAG_NORMAL:
           {
-            tp.dumpAnyTopicDefault( bag,n);//poping messages from program buffor to file KM
+            tp.dumpAnyTopic(DEFAULT, bag,n);//poping messages from program buffor to file KM
             break;
           }
         case BAG_RECOVERY:
           {
-            tp.dumpAnyTopicRecovery( bag,n);//poping messages from program buffor to file KM
+            tp.dumpAnyTopic( RECOVERY,bag,n);//poping messages from program buffor to file KM
             break;
           }
       }
+
+      tp.setClearingPast(RECOVERY,true);
+      tp.setClearingPast(DEFAULT,true);
 			recording=false;
 			//buffer unlock
 			ROS_INFO("Recording finished");
