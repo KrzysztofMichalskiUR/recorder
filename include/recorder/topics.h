@@ -73,28 +73,6 @@ template<unsigned> struct TopicType; //just generating type and linking it to it
 
 #define TOPIC_INSTANTIATION(NAME,TYPE)  Topic<typename TopicType<const_hash( TYPE )>::type >{NAME}
 
-    //static constexpr auto dumpFun=&dumpTopic<NAMESPACE::TYPE>;\
-
-/*
-template <class T> void dumpTopic(rosbag::Bag& bag,std::string topic)
-{
-	int msgNum=10;
-	ros::NodeHandle n;
-	auto pn=boost::typeindex::type_id<T>().pretty_name();
-	std::cout<<"T="<<pn<<std::endl;
-	auto msgPtr=ros::topic::waitForMessage<T>(topic,n,ros::Duration(0.25));
-	if(msgPtr==nullptr)
-	{
-		std::cout<<"msg is null"<<std::endl;
-	}
-	else
-	{
-		std::cout<<"msg cougth sucessfully"<<std::endl;
-		bag.write(topic,std::max(ros::Time::now(),ros::TIME_MIN),*msgPtr);
-	}
-	std::cout<<std::endl;
-};
-*/
 
 //every type of ros message must be registered here,
 //                        namespace/header      class
@@ -352,13 +330,6 @@ struct TopicPack
 
   void recordAnyTopicDefault(rosbag::Bag& bag,ros::NodeHandle &n) //Must be copied and pasted for now. We need std::queue, so Topic is not constexpr and we can't use templates for these methods
   {
-    /*
-    std::apply([&n,&bag](auto&&... args) {((
-
-          args.putMsg(n) 
-
-            ), ...);}, defaultTopics);
-            */
   using boost::hana::for_each;
     for_each(defaultTopics,[&n](auto &t) { t.putMsg(n);});
   }
@@ -369,41 +340,16 @@ struct TopicPack
 
     for_each(defaultTopics,[&bag](auto &t) { t.dump(bag);});
   }
-    /*
-    std::apply([&n,&bag](auto&&... args) {((
-
-          args.dump(bag)
-
-            ), ...);}, defaultTopics);
-  }
-  */
-
   void recordAnyTopicRecovery(rosbag::Bag& bag,ros::NodeHandle &n) 
   {
 
   using boost::hana::for_each;
     for_each(recoveryTopics,[&n](auto &t) { t.putMsg(n);});
-    /*
-    std::apply([&n,&bag](auto&&... args) {((
-
-          args.putMsg(n) 
-
-            ), ...);}, recoveryTopics);
-            */
-
   }
   void dumpAnyTopicRecovery(rosbag::Bag& bag,ros::NodeHandle &n)
   {
-
-  using boost::hana::for_each;
+    using boost::hana::for_each;
     for_each(recoveryTopics,[&bag](auto &t) { t.dump(bag);});
-    /*
-    std::apply([&n,&bag](auto&&... args) {((
-
-          args.dump(bag)
-
-            ), ...);}, recoveryTopics);
-            */
   }
 void setActiveDefault(bool a)
 {
