@@ -140,6 +140,7 @@ int main(int argc, char** argv)
 	rosbag::Bag bag;
 	bool first_time=false;
   TopicPack tp;
+  tp.subscribe(n);
 
 
 
@@ -272,8 +273,10 @@ int main(int argc, char** argv)
 				case BAG_NORMAL:
 				{
 
-          tp.recordAnyTopicDefault( bag,n);//`Pulling messages to program buffor KM
-          tp.dumpAnyTopicDefault( bag,n);//poping messages from program buffor to file KM
+					ros::spinOnce();
+
+ //         tp.recordAnyTopicDefault( bag,n);//`Pulling messages to program buffor KM
+  //        tp.dumpAnyTopicDefault( bag,n);//poping messages from program buffor to file KM
           //Don't nesceserly have to be in the same block KM
 				
 					break;
@@ -290,8 +293,8 @@ int main(int argc, char** argv)
 				}
 				case BAG_RECOVERY:
 				{
-          tp.recordAnyTopicRecovery( bag,n);//Whitch topics go to each set is configured in topics.h KM
-          tp.dumpAnyTopicRecovery( bag,n);
+//          tp.recordAnyTopicRecovery( bag,n);//Whitch topics go to each set is configured in topics.h KM
+   //       tp.dumpAnyTopicRecovery( bag,n);
 					ros::spinOnce();
 					break;
 				}
@@ -303,10 +306,25 @@ int main(int argc, char** argv)
 		
 		// -------------------- finishing recording --------------------
 
-		currentTime = ros::Time::now();
 
+//     tp.dumpAnyTopicRecovery( bag,n);
 		//if time has elapsed, recording is stopped and values of auxiliary variables restored to inital values, bag closed
 		if((recording && (currentTime>endTime || stateCurr==BAG_OFF))){
+
+		currentTime = ros::Time::now();
+			switch(stateCurr_T)
+      {
+        case BAG_NORMAL:
+          {
+            tp.dumpAnyTopicDefault( bag,n);//poping messages from program buffor to file KM
+            break;
+          }
+        case BAG_RECOVERY:
+          {
+            tp.dumpAnyTopicRecovery( bag,n);//poping messages from program buffor to file KM
+            break;
+          }
+      }
 			recording=false;
 			//buffer unlock
 			ROS_INFO("Recording finished");

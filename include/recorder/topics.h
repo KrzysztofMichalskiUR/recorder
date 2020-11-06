@@ -129,19 +129,30 @@ TOPIC_TYPE_SPECIALISATION(visualization_msgs   ,MarkerArray              )
 template <class T> struct Topic
 {
   char* topicname;
-//  int size_limit=10;
-  std::queue<T> 
-    buffor;
+  int size_limit=10;
+  std::queue<T> buffor;
+  ros::Subscriber sub;
+  //using pT=typename T::ConstPtr;
+  void cb (const T& msg)
+  {
+    this->buffor.push(msg);
+  };
+  void subscribe(ros::NodeHandle& n)
+  {
+//    auto cb=[&n,this] shared_ptr<T> msg){ buffor.push(*msg);};
+	  boost::function<void(const T&) > closure=boost::bind(&Topic<T>::cb,this,_1);
+    sub = n.subscribe<T>(std::string(topicname), 1000, closure);
+  //  sub = n.subscribe<T>(std::string(topicname), 1000, std::bind(&Topic<T>::cb,this,_1));
+
+  }
   int putMsg( ros::NodeHandle& n)
   {
     ROS_INFO("Putting on topic: %s",topicname);
     ROS_INFO("of type: %s ",boost::core::demangle(typeid(T).name()).c_str());
-    /*
-    if(buffor.size()==size_limit)
+    if(buffor.size()>=size_limit)
     {
       buffor.pop();
     }
-    */
     boost::shared_ptr<const T> msgPtr=ros::topic::waitForMessage<T>(topicname,n,ros::Duration(0.25));
     auto raw_ptr=msgPtr.get();
     if(raw_ptr==NULL)
@@ -172,6 +183,7 @@ template <class T> struct Topic
     return std::make_tuple
    (
   TOPIC_INSTANTIATION("/map_metadata",                                                   "nav_msgs/MapMetaData"),
+
   TOPIC_INSTANTIATION("/move_base/global_costmap/costmap_updates",                       "map_msgs/OccupancyGridUpdate"),
   TOPIC_INSTANTIATION("/move_base/MyDWAPlannerROS/parameter_descriptions",               "dynamic_reconfigure/ConfigDescription"),
   TOPIC_INSTANTIATION("/move_base/current_goal",                                         "geometry_msgs/PoseStamped"),
@@ -327,6 +339,12 @@ struct TopicPack
   dT defaultTopics=getTopicsDefault();
   using rT= decltype(getTopicsRecovery());
   rT recoveryTopics=getTopicsRecovery();
+  void subscribe(ros::NodeHandle &n)
+  {
+    using boost::hana::for_each;
+    for_each(defaultTopics,[&n](auto &t) { t.subscribe(n);});
+    for_each(recoveryTopics,[&n](auto &t) { t.subscribe(n);});
+  }
 
   void recordAnyTopicDefault(rosbag::Bag& bag,ros::NodeHandle &n) //Must be copied and pasted for now. We need std::queue, so Topic is not constexpr and we can't use templates for these methods
   {
