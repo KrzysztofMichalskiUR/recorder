@@ -130,12 +130,16 @@ template <class T> struct Topic
 {
   char* topicname;
   int size_limit=10;
+  bool active=false; 
   std::queue<T> buffor;
   ros::Subscriber sub;
   //using pT=typename T::ConstPtr;
   void cb (const T& msg)
   {
-    this->buffor.push(msg);
+    if(active)
+    {
+      this->buffor.push(msg);
+    }
   };
   void subscribe(ros::NodeHandle& n)
   {
@@ -171,7 +175,7 @@ template <class T> struct Topic
     {
         bag.write(topicname,ros::Time::now(),buffor.front());
         buffor.pop();
-    }
+   }
     return 1;
   }
   ~Topic()
@@ -374,8 +378,6 @@ struct TopicPack
   }
   */
 
-
-
   void recordAnyTopicRecovery(rosbag::Bag& bag,ros::NodeHandle &n) 
   {
 
@@ -390,7 +392,6 @@ struct TopicPack
             */
 
   }
-
   void dumpAnyTopicRecovery(rosbag::Bag& bag,ros::NodeHandle &n)
   {
 
@@ -404,5 +405,14 @@ struct TopicPack
             ), ...);}, recoveryTopics);
             */
   }
-
+void setActiveDefault(bool a)
+{
+  using boost::hana::for_each;
+  for_each(defaultTopics,[a](auto &t){t.active=a;});
+}
+void setActiveRecovery(bool a)
+{
+  using boost::hana::for_each;
+  for_each(recoveryTopics,[a](auto &t){t.active=a;});
+}
 };
