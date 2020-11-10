@@ -43,6 +43,7 @@
 #include <boost/hana.hpp>
 #include <boost/hana/ext/std/tuple.hpp>
 #include <list>
+#include <ctime>
 
 
 unsigned constexpr const_hash(char const *input) {
@@ -118,11 +119,11 @@ template <class T> struct Topic
   ros::Duration back_diff=ros::Duration(10.0);
   void trimOld()
   {
-      auto tn=ros::Time::now();
-        while(buffor.size()>0 && buffor.back().second-tn<back_diff)
-        {
-          buffor.pop_back();
-        }
+      auto tn=ros::Time(std::time(0));
+      while(buffor.size()>0 && tn-buffor.back().second>back_diff)
+      {
+        buffor.pop_back();
+      }
   }
   void cb (const T& msg)
   {
@@ -132,7 +133,10 @@ template <class T> struct Topic
       {
         trimOld();
       }
-      buffor.push_front(stampedMsg{msg,ros::Time::now()});
+      buffor.push_front(stampedMsg{msg,
+          //ros::Time::now()
+          ros::Time(std::time(0))
+          });
     }
   };
   
@@ -144,7 +148,7 @@ template <class T> struct Topic
   //  sub = n.subscribe<T>(std::string(topicname), 1000, std::bind(&Topic<T>::cb,this,_1));
 
   }
-  int putMsg( ros::NodeHandle& n)
+  int putMsg( ros::NodeHandle& n)//remove?
   {
     ROS_INFO("Putting on topic: %s",topicname);
     ROS_INFO("of type: %s ",boost::core::demangle(typeid(T).name()).c_str());

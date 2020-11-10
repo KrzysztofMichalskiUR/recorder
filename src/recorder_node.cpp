@@ -31,8 +31,6 @@ bool recording = false;
 
 std::mutex mtx;
 
-
-
 //service callback (when mode is changed)
 bool setState(recorder::SetState::Request &req,recorder::SetState::Response & resp)
 {
@@ -62,11 +60,6 @@ bool triggerCbT(std_srvs::Trigger::Request& req,
   ROS_INFO("Triggered - turnover");
   return true;
 }
-
-
-
-
-
 
 int main(int argc, char** argv)
 {
@@ -154,7 +147,7 @@ int main(int argc, char** argv)
 	while(ros::ok())
 	{
 		
-		currentTime = ros::Time::now();
+		currentTime = ros::Time(std::time(0) );
 
 		// -------------------- reaction on triggers --------------------
 
@@ -183,7 +176,6 @@ int main(int argc, char** argv)
 			}
 			else
 			{
-
 				//time is extended before, and here only displayed info
 				ROS_INFO("Ghosting again in the same time buffer!!!");
 				ROS_INFO("Recording extended until %d", endTime.sec);
@@ -266,49 +258,16 @@ int main(int argc, char** argv)
 				}	
 			}
 
-		}
 		
 		// -------------------- recording --------------------
 
-		start2Time = ros::Time::now(); //helpful to calculate time of recording message per each topic
+		start2Time = ros::Time(std::time(0)); //helpful to calculate time of recording message per each topic
 
-		if(recording){
-		//If there is a signal to record a bag, we choose mode.
-		//
-		//std::cout<<"State: "<<stateCurr<<std::endl;
-      if(stateCurr!=statePrev)
-      {
-        /*
-        switch(stateCurr_T)
-        {
-          
-          case BAG_NORMAL:
-          {
-            tp.setActive(DEFAULT,false);
-            tp.setActive(RECOVERY,false);
-
-            break;
-          }
-          case BAG_OFF:
-          {
-            tp.setActive(DEFAULT,false);
-            tp.setActive(RECOVERY,false);
-
-            break;
-
-          }
-          case BAG_RECOVERY:
-          {
-            tp.setActive(DEFAULT,false);
-            tp.setActive(RECOVERY,true);
-          }
-        
-        }
-        */
-      }
 		ros::spinOnce();
 
-		}
+      }
+
+		currentTime = ros::Time(std::time(0));
 		
 		
 		// -------------------- finishing recording --------------------
@@ -318,7 +277,6 @@ int main(int argc, char** argv)
 		//if time has elapsed, recording is stopped and values of auxiliary variables restored to inital values, bag closed
 		if((recording && (currentTime>endTime || stateCurr==BAG_OFF))){
 
-		currentTime = ros::Time::now();
 			switch(stateCurr_T)
       {
         case BAG_NORMAL:
@@ -326,6 +284,7 @@ int main(int argc, char** argv)
             tp.dumpAnyTopic(DEFAULT, bag,n);//poping messages from program buffor to file KM
             break;
           }
+          
         case BAG_RECOVERY:
           {
             tp.dumpAnyTopic( RECOVERY,bag,n);//poping messages from program buffor to file KM
@@ -338,7 +297,10 @@ int main(int argc, char** argv)
 			recording=false;
 			//buffer unlock
 			ROS_INFO("Recording finished");
-			ROS_INFO("Time of recording messages: %f",(currentTime-startTime).toSec());
+			ROS_INFO("Time of recording messages: %f",
+           // (stateCurr_T==DEFAULT?tp.defaultTopics:tp.recoveryTopics)
+            currentTime.toSec()
+            -startTime.toSec());
 			std::cout<<std::endl<<std::endl;
 			
 			//rename file
